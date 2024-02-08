@@ -67,6 +67,7 @@ STD_MODULES = (
     sn.UnqualName('pg'),
     sn.UnqualName('std::_test'),
     sn.UnqualName('fts'),
+    sn.UnqualName('jaldis'),
     EXT_MODULE,
     sn.UnqualName('std::enc'),
 )
@@ -83,6 +84,7 @@ STD_SOURCES = (
     sn.UnqualName('enc'),
     sn.UnqualName('pg'),
     sn.UnqualName('fts'),
+    sn.UnqualName('jaldis'),
 )
 TESTMODE_SOURCES = (
     sn.UnqualName('_testmode'),
