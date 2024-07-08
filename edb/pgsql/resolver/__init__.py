@@ -17,6 +17,7 @@
 #
 
 from __future__ import annotations
+from typing import Tuple, Optional
 
 from edb.pgsql import ast as pgast
 from edb.schema import schema as s_schema
@@ -34,7 +35,7 @@ def resolve(
     query: pgast.Base,
     schema: s_schema.Schema,
     options: context.Options,
-) -> pgast.Base:
+) -> Tuple[pgast.Base, Optional[str]]:
     ctx = context.ResolverContextLevel(
         None, context.ContextSwitchMode.EMPTY, schema=schema, options=options
     )
@@ -43,4 +44,14 @@ def resolve(
 
     command.compile_dml(query, ctx=ctx)
 
-    return dispatch.resolve(query, ctx=ctx)
+    resolved = dispatch.resolve(query, ctx=ctx)
+
+    # when the top-level query is DML statement, clients will expect a tag in
+    # the CommandComplete message that describes the number of modified rows.
+    # Since our resolved SQL does not have a top-level DML stmt, we need to
+    # override that tag.
+    command_complete_tag = None
+    if isinstance(query, pgast.InsertStmt):
+        command_complete_tag = 'INSERT'
+
+    return (resolved, command_complete_tag)
