@@ -436,10 +436,14 @@ class TestProtocol(ProtocolTestCase):
         )
 
         await self._execute('CREATE TYPE ParseCardTest')
-        await self.con.recv_match(
-            protocol.CommandComplete,
-            status='CREATE TYPE'
-        )
+        try:
+            await self.con.recv_match(
+                protocol.CommandComplete,
+                status='CREATE TYPE'
+            )
+        except AssertionError:
+            if not self.is_repeat:
+                raise
         await self.con.recv_match(protocol.ReadyForCommand)
 
         await self._parse("SELECT ParseCardTest")

@@ -994,13 +994,15 @@ class TestEdgeQLDT(tb.QueryTestCase):
             r'''SELECT Obj { seq_prop } ORDER BY Obj.seq_prop;''',
             [
                 {'seq_prop': 1}, {'seq_prop': 2}
+            ] if not self.is_repeat else [
+                {'seq_prop': 3}, {'seq_prop': 4}
             ],
         )
 
         await self.assert_query_result(
             r'''SELECT Obj2 { seq_prop };''',
             [
-                {'seq_prop': 1}
+                {'seq_prop': 1 if not self.is_repeat else 2},
             ],
         )
 

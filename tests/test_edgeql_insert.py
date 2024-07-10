@@ -1951,7 +1951,7 @@ class TestInsert(tb.QueryTestCase):
             r'''
                 SELECT DefaultTest8.number;
             ''',
-            {1, 2, 3}
+            {1, 2, 3} if not self.is_repeat else {4, 5, 6}
         )
 
     async def test_edgeql_insert_default_06(self):
