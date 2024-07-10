@@ -1641,12 +1641,7 @@ def range_for_material_objtype(
         assert not typeref.is_view, "attempting to generate range from view"
         typeref_descendants = _get_typeref_descendants(
             typeref,
-            include_descendants=(
-                include_descendants
-
-                # HACK: This is a workaround for #4491
-                and typeref.name_hint.module not in {'cfg', 'sys'}
-            ),
+            include_descendants=include_descendants,
             for_mutation=for_mutation,
         )
         if (
@@ -1655,18 +1650,14 @@ def range_for_material_objtype(
             # using a CTE. This allows postgres to actually give us back the
             # alias names that we use for relations, which we use to track which
             # parts of the query are being referred to.
-            not ctx.env.use_inheritance_ctes
+            ctx.env.is_explain
 
             # Don't use CTEs if there is no inheritance. (ie. There is only a
             # single material type)
             or len(typeref_descendants) <= 1
         ):
             inheritance_selects = _selects_for_typeref_descendants(
-                typeref_descendants,
-                path_id,
-                for_mutation=for_mutation,
-                include_descendants=include_descendants,
-                ctx=ctx,
+                typeref_descendants, path_id, ctx=ctx,
             )
             ops = [
                 (context.OverlayOp.UNION, select)
@@ -1695,11 +1686,7 @@ def range_for_material_objtype(
 
             if typeref.id not in ctx.type_inheritance_ctes:
                 inheritance_selects = _selects_for_typeref_descendants(
-                    typeref_descendants,
-                    typeref_path,
-                    for_mutation=False,
-                    include_descendants=False,
-                    ctx=ctx,
+                    typeref_descendants, typeref_path, ctx=ctx,
                 )
 
                 type_qry: pgast.SelectStmt = inheritance_selects[0]
@@ -1838,8 +1825,6 @@ def _selects_for_typeref_descendants(
     typeref_descendants: Sequence[irast.TypeRef],
     path_id: irast.PathId,
     *,
-    for_mutation: bool,
-    include_descendants: bool,
     ctx: context.CompilerContextLevel,
 ) -> list[pgast.SelectStmt]:
     selects = []
@@ -1847,8 +1832,6 @@ def _selects_for_typeref_descendants(
         rvar = _table_from_typeref(
             subref,
             path_id,
-            for_mutation=for_mutation,
-            include_descendants=include_descendants,
             ctx=ctx,
         )
         qry = pgast.SelectStmt(from_clause=[rvar])
@@ -1865,20 +1848,11 @@ def _table_from_typeref(
     typeref: irast.TypeRef,
     path_id: irast.PathId,
     *,
-    for_mutation: bool,
-    include_descendants: bool,
     ctx: context.CompilerContextLevel,
 ) -> pgast.PathRangeVar:
     assert isinstance(typeref.name_hint, sn.QualName)
 
     aspect = 'table'
-
-    if (
-        include_descendants
-        and not for_mutation
-        and typeref.name_hint.module in {'cfg', 'sys', 'schema'}
-    ):
-        aspect = 'inhview'
 
     table_schema_name, table_name = common.get_objtype_backend_name(
         typeref.id,
@@ -2133,9 +2107,6 @@ def range_for_ptrref(
     assert isinstance(ptrref.out_source.name_hint, sn.QualName)
     include_descendants = (
         not ptrref.union_is_exhaustive
-
-        # HACK: This is a workaround for #4491
-        and ptrref.out_source.name_hint.module not in {'sys', 'cfg'}
     )
 
     output_cols = ('source', 'target')
@@ -2206,7 +2177,9 @@ def _range_for_component_ptrref(
     )
 
     if (
-        not ctx.env.use_inheritance_ctes
+        # If explaining, expand inheritance directly as a union of pointers.
+        # See range for typerefs for more information.
+        ctx.env.is_explain
 
         # Don't use CTEs if there is no inheritance. (ie. There is only a
         # single ptrref)

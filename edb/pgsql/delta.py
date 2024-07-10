@@ -5088,10 +5088,6 @@ class PointerMetaCommand(
                 env=sql_res.env,
             )
 
-        ctes = list(sql_tree.ctes or [])
-        if sql_tree.ctes:
-            sql_tree.ctes.clear()
-
         if check_non_null:
             # wrap into raise_on_null
             pointer_name = 'link' if is_link else 'property'
@@ -5145,6 +5141,10 @@ class PointerMetaCommand(
         nullable = conv_expr.cardinality.can_be_zero()
 
         if produce_ctes:
+            ctes = list(sql_tree.ctes or [])
+            if sql_tree.ctes:
+                sql_tree.ctes.clear()
+
             # convert root query into last CTE
             ctes.append(
                 pgast.CommonTableExpr(
@@ -5159,11 +5159,6 @@ class PointerMetaCommand(
             return (ctes_sql, nullable)
 
         else:
-            # There should be no CTEs when prodoce_ctes==False, since this will
-            # will happen only when changing type (cast_expr), which cannot
-            # contain DML.
-            assert len(ctes) == 0
-
             select_sql = codegen.generate_source(sql_tree)
 
             return (select_sql, nullable)
