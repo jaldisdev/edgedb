@@ -36,6 +36,28 @@ std::uuid_generate_v4() -> std::uuid {
 };
 
 
+CREATE FUNCTION
+std::uuid_generate_v7j() -> std::uuid
+{
+    CREATE ANNOTATION std::description := 'Return a UUIDv7.';
+    SET volatility := 'Volatile';
+    USING SQL $$
+        SELECT encode(
+            set_bit(
+                set_bit(
+                    overlay(uuid_send(gen_random_uuid())
+                        placing substring(int8send(floor(extract(epoch from clock_timestamp()) * 1000)::bigint) from 3)
+                        from 1 for 6
+                    ),
+                52, 1
+            ),
+            53, 1
+        ),
+        'hex')::uuid
+    $$;
+};
+
+
 CREATE INFIX OPERATOR
 std::`=` (l: std::uuid, r: std::uuid) -> std::bool {
     CREATE ANNOTATION std::identifier := 'eq';
